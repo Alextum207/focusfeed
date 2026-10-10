@@ -43,24 +43,61 @@ enum Scripts {
         +'ytm-compact-autoplay-renderer,ytm-media-item,yt-lockup-view-model';
       var TIME=/^(?:(\\d+):)?(\\d{1,2}):(\\d{2})$/;
       // Feed previews autoplay inline (allowsInlineMediaPlayback) and keep cycling through cards.
-      // Playback is only allowed on the watch page.
+      // Playback is only allowed on the watch page. Blocking play() alone still flashes YouTube's
+      // preview player over the thumbnail, so on all other pages every player is kept invisible.
       window.__ffBlockedPlays=0;
+      var lastBlocked='';
       function playAllowed(){ return location.pathname.indexOf('/watch')===0; }
+      function syncPlayClass(){
+        var r=document.documentElement; if(r) r.classList.toggle('ff-noplay',!playAllowed());
+      }
+      ['pushState','replaceState'].forEach(function(k){
+        var o=history[k];
+        history[k]=function(){ var r=o.apply(this,arguments); syncPlayClass(); return r; };
+      });
+      addEventListener('popstate',syncPlayClass);
+      syncPlayClass();
+      function chain(el){
+        var out=[];
+        for(var n=el,i=0;n&&i<5;n=n.parentElement,i++){
+          var q=n.getBoundingClientRect();
+          var c=(typeof n.className==='string'&&n.className)?'.'+n.className.split(' ')[0].slice(0,10):'';
+          out.push(n.tagName.toLowerCase()+c+'('+Math.round(q.width)+'x'+Math.round(q.height)+')');
+        }
+        return out.join('<');
+      }
+      // Mark the blocked video plus wrappers of exactly its size (the preview overlay), never the
+      // thumbnail or the card itself. Only applies while html.ff-noplay is set.
+      function markOverlay(v){
+        try{
+          v.classList.add('ff-preview-hidden');
+          var r=v.getBoundingClientRect(), n=v.parentElement, k=0;
+          while(n&&n!==document.body&&k<6&&!n.matches(VIDEO)){
+            var q=n.getBoundingClientRect();
+            if(Math.abs(q.width-r.width)>2||Math.abs(q.height-r.height)>2||n.querySelector('img')) break;
+            n.classList.add('ff-preview-hidden'); n=n.parentElement; k++;
+          }
+          lastBlocked=chain(v);
+        }catch(e){}
+      }
       var origPlay=HTMLMediaElement.prototype.play;
       HTMLMediaElement.prototype.play=function(){
         if(!playAllowed()){
           window.__ffBlockedPlays++;
+          markOverlay(this);
           return Promise.reject(new DOMException('FocusFeed: previews are off','NotAllowedError'));
         }
         return origPlay.apply(this,arguments);
       };
       document.addEventListener('play',function(e){
         var v=e.target;
-        if(v&&v.tagName==='VIDEO'&&!playAllowed()){ v.pause(); window.__ffBlockedPlays++; }
+        if(v&&v.tagName==='VIDEO'&&!playAllowed()){ v.pause(); window.__ffBlockedPlays++; markOverlay(v); }
       },true);
       var st=document.createElement('style');
       st.textContent='.ff-hide,ytm-rich-section-renderer:has(ytm-reel-shelf-renderer),ytm-reel-shelf-renderer,'
-        +'ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2{display:none!important}';
+        +'ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2{display:none!important}'
+        +'html.ff-noplay video,html.ff-noplay .html5-video-player,html.ff-noplay .ff-preview-hidden'
+        +'{visibility:hidden!important}';
       var sweeps=0, loads=0;
       try{ loads=(+sessionStorage.getItem('ffLoads')||0)+1; sessionStorage.setItem('ffLoads',String(loads)); }catch(e){}
       function seconds(t){
@@ -86,11 +123,12 @@ enum Scripts {
         try{
           var s=stats();
           window.webkit.messageHandlers.ff.postMessage('yt loads='+s.loads+' items='+s.items+' hid='+s.hid
-            +' sweeps='+s.sweeps+' blockedPlays='+window.__ffBlockedPlays);
+            +' sweeps='+s.sweeps+' blockedPlays='+window.__ffBlockedPlays+' last='+lastBlocked);
         }catch(e){}
       }
       function sweep(){
         sweeps++;
+        syncPlayClass();
         if(!st.isConnected) (document.head||document.documentElement).appendChild(st);
         var want=new Set();
         document.querySelectorAll('a[href*="/shorts"]').forEach(function(a){ want.add(a.closest(CARD)||a); });

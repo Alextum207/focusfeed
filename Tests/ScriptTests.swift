@@ -194,3 +194,33 @@ final class YouTubeRecyclingTests: ScriptTestCase {
         XCTAssertNotEqual(v, "none")
     }
 }
+
+final class YouTubePreviewTests: ScriptTestCase {
+    private func yt(_ path: String, html: String = "<body>x</body>", act: String? = nil, js: String) -> Any? {
+        eval(html: html, base: "https://m.youtube.com" + path, script: Scripts.youtube, act: act, js: js)
+    }
+    func testNoPlayClassOnlyOutsideWatch() {
+        let js = "document.documentElement.classList.contains('ff-noplay')"
+        XCTAssertEqual(yt("/", js: js) as? Bool, true)
+        XCTAssertEqual(yt("/results?search_query=a", js: js) as? Bool, true)
+        XCTAssertEqual(yt("/watch?v=1", js: js) as? Bool, false)
+    }
+    func testNavigatingToWatchShowsPlayerAgain() {
+        let v = yt("/", act: "history.pushState({}, '', '/watch?v=1')",
+                   js: "document.documentElement.classList.contains('ff-noplay')") as? Bool
+        XCTAssertEqual(v, false)
+    }
+    func testVideosInvisibleOnFeedVisibleOnWatch() {
+        let html = "<body><video id='v' style='width:100px;height:100px'></video></body>"
+        let js = "getComputedStyle(document.getElementById('v')).visibility"
+        XCTAssertEqual(yt("/", html: html, js: js) as? String, "hidden")
+        XCTAssertEqual(yt("/watch?v=1", html: html, js: js) as? String, "visible")
+    }
+    func testBlockedPreviewIsMarked() {
+        let html = "<body><ytm-rich-item-renderer><img><div><video id='v'></video></div></ytm-rich-item-renderer></body>"
+        let v = yt("/", html: html, act: "document.getElementById('v').play().catch(function(){})",
+                   js: "document.getElementById('v').classList.contains('ff-preview-hidden')") as? Bool
+        XCTAssertEqual(v, true)
+    }
+}
+
