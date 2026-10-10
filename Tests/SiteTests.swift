@@ -17,8 +17,17 @@ final class SiteTests: XCTestCase {
     func testReelsBlocked() {
         XCTAssertEqual(Site.instagram.redirect(for: u("https://www.instagram.com/reels/")), Site.instagram.start)
     }
-    func testSingularReelAllowed() {
-        XCTAssertNil(Site.instagram.redirect(for: u("https://www.instagram.com/reel/ABC123/")))
+    func testReelOpensAsEmbed() {
+        XCTAssertEqual(Site.instagram.redirect(for: u("https://www.instagram.com/reel/ABC123/")),
+                       u("https://www.instagram.com/reel/ABC123/embed/"))
+        XCTAssertEqual(Site.instagram.redirect(for: u("https://www.instagram.com/someuser/reel/XYZ/")),
+                       u("https://www.instagram.com/reel/XYZ/embed/"))
+    }
+    func testEmbedIsNotRedirectedAgain() {   // no loop
+        XCTAssertNil(Site.instagram.redirect(for: u("https://www.instagram.com/reel/ABC123/embed/")))
+    }
+    func testYoutubeIgnoresReelRule() {
+        XCTAssertNil(Site.youtube.redirect(for: u("https://m.youtube.com/reel/ABC/")))
     }
     func testExploreTagsBlockedButExploreAllowed() {
         XCTAssertNotNil(Site.instagram.redirect(for: u("https://www.instagram.com/explore/tags/cats/")))
