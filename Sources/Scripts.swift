@@ -40,7 +40,7 @@ enum Scripts {
         +'ytm-reel-shelf-renderer,ytm-shelf-renderer,ytm-pivot-bar-item-renderer,ytm-rich-section-renderer';
       var VIDEO='ytm-rich-item-renderer,ytm-video-with-context-renderer,ytm-compact-video-renderer,'
         +'ytm-compact-autoplay-renderer,ytm-media-item,yt-lockup-view-model';
-      var TIME=/^(?:(\d+):)?(\d{1,2}):(\d{2})$/;
+      var TIME=/^(?:(\\d+):)?(\\d{1,2}):(\\d{2})$/;
       var st=document.createElement('style');
       st.textContent='ytm-rich-section-renderer:has(ytm-reel-shelf-renderer),ytm-reel-shelf-renderer,'
         +'ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2{display:none!important}';
@@ -54,7 +54,7 @@ enum Scripts {
           (a.closest(CARD)||a).style.display='none';
         });
         document.querySelectorAll('ytm-pivot-bar-item-renderer').forEach(function(i){
-          if(/^\s*shorts\s*$/i.test(i.textContent)) i.style.display='none';
+          if(/^\\s*shorts\\s*$/i.test(i.textContent)) i.style.display='none';
         });
         document.querySelectorAll(VIDEO).forEach(function(c){
           if(c.style.display==='none') return;
@@ -78,7 +78,7 @@ enum Scripts {
     static let instagram = """
     (function(){
       var SUGGESTED=/suggested for you|suggested posts|vorgeschlagen für dich|vorgeschlagene beiträge/i;
-      var REEL=/(^|\/)reel\/[^\/]+/;
+      var REEL=/(^|\\/)reel\\/[^\\/]+/;
       function hide(el){ el.style.display='none'; }
       function onReel(){ return REEL.test(location.pathname); }
       var snap=document.createElement('style');
