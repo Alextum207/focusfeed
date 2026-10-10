@@ -141,6 +141,11 @@ final class InstagramScriptTests: ScriptTestCase {
     func testSmallVideoInDirectThreadDoesNotLock() {
         XCTAssertFalse(lockedAt("/direct/t/1/", video: "<video style='display:block;width:120px;height:120px'></video>"))
     }
+    func testBigVideoOnReelPagesLocksGestures() {
+        let v = "<video style='display:block;width:100%;height:600px'></video>"
+        XCTAssertTrue(lockedAt("/reel/ABC/", video: v))
+        XCTAssertTrue(lockedAt("/someuser/reel/ABC/", video: v))
+    }
     func testBigVideoInFeedDoesNotLock() {
         XCTAssertFalse(lockedAt("/", video: "<video style='display:block;width:100%;height:600px'></video>"))
     }

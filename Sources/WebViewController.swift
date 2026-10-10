@@ -7,6 +7,8 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKScriptM
     private let urlLabel = UILabel()          // debug: shows the current path so we can target viewers
     private var urlObs: NSKeyValueObservation?
     private var labelHeight: NSLayoutConstraint!
+    private let refresh = UIRefreshControl()
+    private var userReload = false   // script-initiated reloads are cancelled
     private var pathText = ""
     private var diagText = ""
 
@@ -58,7 +60,19 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKScriptM
             self?.pathText = u.path + (u.query.map { "?" + $0 } ?? "")
             self?.refreshLabel()
         }
+        refresh.addTarget(self, action: #selector(pulled), for: .valueChanged)
+        web.scrollView.refreshControl = refresh
         web.load(URLRequest(url: site.start))
+    }
+
+    @objc private func pulled() {
+        userReload = true
+        web.reload()
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { refresh.endRefreshing() }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        refresh.endRefreshing()
     }
 
     func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
@@ -76,6 +90,12 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKScriptM
 
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        if action.navigationType == .reload && action.targetFrame?.isMainFrame != false {
+            if userReload { userReload = false } else {
+                decisionHandler(.cancel)   // page tried to reload itself
+                return
+            }
+        }
         if let url = action.request.url, let target = site.redirect(for: url) {
             decisionHandler(.cancel)
             webView.load(URLRequest(url: target))

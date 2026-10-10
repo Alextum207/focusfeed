@@ -6,15 +6,12 @@ enum Scripts {
         let blocked = (try? String(data: JSONEncoder().encode(site.blockedPrefixes), encoding: .utf8)) ?? "[]"
         let start = (try? String(data: JSONEncoder().encode(site.start.absoluteString), encoding: .utf8)) ?? "\"/\""
         let force = site.forceQuery.map { "\"\($0)\"" } ?? "null"
-        let embed = site.embedReels ? "true" : "false"
         return """
         (function(){
-          var blocked=\(blocked), start=\(start), force=\(force), embed=\(embed);
-        var reelRe=/^\\/(?:[^\\/]+\\/)?reel\\/([^\\/]+)\\/?$/;
+          var blocked=\(blocked), start=\(start), force=\(force);
           function isBlocked(p){ for(var i=0;i<blocked.length;i++) if(p.indexOf(blocked[i])===0) return true; return false; }
           function check(){
-            var p=location.pathname, m=embed&&reelRe.exec(p);
-            if(m){ location.replace('/reel/'+m[1]+'/embed/'); return; }
+            var p=location.pathname;
             if(isBlocked(p) || (force && p==='/' && location.search.indexOf(force)<0)) location.replace(start);
           }
           ['pushState','replaceState'].forEach(function(k){
@@ -137,7 +134,7 @@ enum Scripts {
         }
         return null;
       }
-      function locked(){ return location.pathname.indexOf('/direct/')===0&&!!bigVideo(); }
+      function locked(){ var p=location.pathname; return (p.indexOf('/direct/')===0||REEL.test(p))&&!!bigVideo(); }
       window.__ffLocked=locked;
       function chain(el){
         var s=[];
