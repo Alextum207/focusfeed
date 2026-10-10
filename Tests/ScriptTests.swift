@@ -182,6 +182,7 @@ final class YouTubeStatsTests: ScriptTestCase {
     func testWatchPagePlaybackIsAllowed() {
         XCTAssertEqual(blockedPlays(path: "/watch?v=1"), 0)
     }
+}
 
 final class YouTubeRecyclingTests: ScriptTestCase {
     /// YouTube reuses card elements while scrolling: a card that stops being a Short must reappear.
