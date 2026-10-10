@@ -12,6 +12,10 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         let yt = WebViewController(site: .youtube, script: Scripts.youtube)
         yt.tabBarItem = UITabBarItem(title: "YouTube", image: UIImage(systemName: "play.rectangle"), tag: 1)
         tabs.viewControllers = [ig, yt]
+        let bar = UITabBarAppearance()
+        bar.configureWithOpaqueBackground()
+        tabs.tabBar.standardAppearance = bar
+        tabs.tabBar.scrollEdgeAppearance = bar
         window = UIWindow(frame: UIScreen.main.bounds)
         window?.rootViewController = tabs
         window?.makeKeyAndVisible()

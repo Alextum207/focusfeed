@@ -21,10 +21,18 @@ final class WebViewController: UIViewController, WKNavigationDelegate {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        view.backgroundColor = .black
         web.navigationDelegate = self
-        web.frame = view.bounds
-        web.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        web.allowsBackForwardNavigationGestures = true   // swipe from the left edge = back
+        web.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(web)
+        // Safe area keeps the page clear of the status bar and our own tab bar.
+        NSLayoutConstraint.activate([
+            web.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            web.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            web.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            web.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+        ])
         web.load(URLRequest(url: site.start))
     }
 

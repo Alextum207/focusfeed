@@ -11,8 +11,8 @@ private final class LoadDelegate: NSObject, WKNavigationDelegate {
 class ScriptTestCase: XCTestCase {
     private var keep: [AnyObject] = []
 
-    /// Loads `html` at `base` with `script` injected, returns style.display == 'none' for each id.
-    func hidden(html: String, base: String, script: String, ids: [String]) -> [String: Bool] {
+    /// Loads `html` at `base` with `script` injected, optionally runs `act`, then returns the value of `js`.
+    func eval(html: String, base: String, script: String, act: String? = nil, js: String) -> Any? {
         let cfg = WKWebViewConfiguration()
         cfg.userContentController.addUserScript(
             WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true))
@@ -23,18 +23,23 @@ class ScriptTestCase: XCTestCase {
         keep += [web, d]
         web.loadHTMLString(html, baseURL: URL(string: base))
         wait(for: [loaded], timeout: 10)
+        if let act { web.evaluateJavaScript(act, completionHandler: nil) }
 
         let done = expectation(description: "js")
-        var out: [String: Bool] = [:]
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            web.evaluateJavaScript("[" + ids.map { "document.getElementById('\($0)').style.display==='none'" }
-                .joined(separator: ",") + "]") { v, _ in
-                if let arr = v as? [Bool] { for (i, id) in ids.enumerated() { out[id] = arr[i] } }
-                done.fulfill()
-            }
+        var out: Any?
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            web.evaluateJavaScript(js) { v, _ in out = v; done.fulfill() }
         }
         wait(for: [done], timeout: 10)
         return out
+    }
+
+    /// style.display == 'none' for each id.
+    func hidden(html: String, base: String, script: String, ids: [String]) -> [String: Bool] {
+        let js = "[" + ids.map { "document.getElementById('\($0)').style.display==='none'" }
+            .joined(separator: ",") + "]"
+        let arr = eval(html: html, base: base, script: script, js: js) as? [Bool] ?? []
+        return Dictionary(uniqueKeysWithValues: zip(ids, arr))
     }
 }
 
@@ -55,6 +60,26 @@ final class YouTubeScriptTests: ScriptTestCase {
         """, base: "https://m.youtube.com/results?search_query=a", script: Scripts.youtube,
         ids: ["list", "vid", "short"])
         XCTAssertEqual(r, ["list": false, "vid": false, "short": true])
+    }
+}
+
+final class YouTubeDurationTests: ScriptTestCase {
+    func testShortDurationCardsHiddenLongOnesKept() {
+        let r = hidden(html: """
+        <ytm-rich-item-renderer id="s"><span>0:57</span></ytm-rich-item-renderer>
+        <ytm-rich-item-renderer id="e"><div><span>3:00</span></div></ytm-rich-item-renderer>
+        <ytm-rich-item-renderer id="l"><span>3:01</span></ytm-rich-item-renderer>
+        <ytm-rich-item-renderer id="m"><span>57:45</span></ytm-rich-item-renderer>
+        <ytm-rich-item-renderer id="h"><span>1:02:03</span></ytm-rich-item-renderer>
+        """, base: "https://m.youtube.com/", script: Scripts.youtube, ids: ["s", "e", "l", "m", "h"])
+        XCTAssertEqual(r, ["s": true, "e": true, "l": false, "m": false, "h": false])
+    }
+    func testShortsTabWithoutLinkHidden() {
+        let r = hidden(html: """
+        <ytm-pivot-bar-item-renderer id="t"><div><span>Shorts</span></div></ytm-pivot-bar-item-renderer>
+        <ytm-pivot-bar-item-renderer id="h"><div><span>Home</span></div></ytm-pivot-bar-item-renderer>
+        """, base: "https://m.youtube.com/", script: Scripts.youtube, ids: ["t", "h"])
+        XCTAssertEqual(r, ["t": true, "h": false])
     }
 }
 
@@ -88,5 +113,19 @@ final class InstagramScriptTests: ScriptTestCase {
                        base: "https://www.instagram.com/reel/CURRENT/",
                        script: Scripts.instagram, ids: ["n"])
         XCTAssertEqual(r, ["n": true])
+    }
+    private func locked(base: String, act: String? = nil) -> Bool {
+        eval(html: "<main></main>", base: base, script: Scripts.instagram, act: act,
+             js: "!!document.getElementById('ff-lock')") as? Bool ?? false
+    }
+    func testScrollLockedOnUserReelPath() {
+        XCTAssertTrue(locked(base: "https://www.instagram.com/someuser/reel/ABC/"))
+    }
+    func testFeedIsNotLocked() {
+        XCTAssertFalse(locked(base: "https://www.instagram.com/?variant=following"))
+    }
+    func testLockReleasedAfterLeavingReel() {
+        XCTAssertFalse(locked(base: "https://www.instagram.com/reel/ABC/",
+            act: "history.pushState({}, '', '/'); document.body.appendChild(document.createElement('i'));"))
     }
 }
