@@ -67,12 +67,13 @@ final class YouTubeDurationTests: ScriptTestCase {
     func testShortDurationCardsHiddenLongOnesKept() {
         let r = hidden(html: """
         <ytm-rich-item-renderer id="s"><span>0:57</span></ytm-rich-item-renderer>
-        <ytm-rich-item-renderer id="e"><div><span>3:00</span></div></ytm-rich-item-renderer>
-        <ytm-rich-item-renderer id="l"><span>3:01</span></ytm-rich-item-renderer>
+        <ytm-rich-item-renderer id="e"><div><span>1:00</span></div></ytm-rich-item-renderer>
+        <ytm-rich-item-renderer id="l"><span>1:01</span></ytm-rich-item-renderer>
+        <ytm-rich-item-renderer id="t"><span>3:00</span></ytm-rich-item-renderer>
         <ytm-rich-item-renderer id="m"><span>57:45</span></ytm-rich-item-renderer>
         <ytm-rich-item-renderer id="h"><span>1:02:03</span></ytm-rich-item-renderer>
-        """, base: "https://m.youtube.com/", script: Scripts.youtube, ids: ["s", "e", "l", "m", "h"])
-        XCTAssertEqual(r, ["s": true, "e": true, "l": false, "m": false, "h": false])
+        """, base: "https://m.youtube.com/", script: Scripts.youtube, ids: ["s", "e", "l", "t", "m", "h"])
+        XCTAssertEqual(r, ["s": true, "e": true, "l": false, "t": false, "m": false, "h": false])
     }
     func testShortsTabWithoutLinkHidden() {
         let r = hidden(html: """

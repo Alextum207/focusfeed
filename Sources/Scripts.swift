@@ -30,11 +30,11 @@ enum Scripts {
     }
 
     /// YouTube: hides anything that links to /shorts, the "Shorts" tab (a button without a link),
-    /// and every video card whose duration badge is <= 3:00 (Shorts are often served as /watch
+    /// and every video card whose duration badge is <= 1:00 (Shorts are often served as /watch
     /// links, so the URL alone cannot tell them apart).
     static let youtube = """
     (function(){
-      var MAX=180;
+      var MAX=60;
       var CARD='ytm-rich-item-renderer,ytm-video-with-context-renderer,ytm-compact-video-renderer,'
         +'ytm-compact-autoplay-renderer,ytm-media-item,yt-lockup-view-model,'
         +'ytm-reel-shelf-renderer,ytm-shelf-renderer,ytm-pivot-bar-item-renderer,ytm-rich-section-renderer';
