@@ -10,7 +10,7 @@ enum Scripts {
         return """
         (function(){
           var blocked=\(blocked), start=\(start), force=\(force), embed=\(embed);
-  var reelRe=/^\\/(?:[^\\/]+\\/)?reel\\/([^\\/]+)\\/?$/;
+        var reelRe=/^\\/(?:[^\\/]+\\/)?reel\\/([^\\/]+)\\/?$/;
           function isBlocked(p){ for(var i=0;i<blocked.length;i++) if(p.indexOf(blocked[i])===0) return true; return false; }
           function check(){
             var p=location.pathname, m=embed&&reelRe.exec(p);
