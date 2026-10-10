@@ -63,8 +63,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKScriptM
         refreshLabel()
     }
 
-    private func refreshLabel() { urlLabel.text = pathText + "
-" + diagText }
+    private func refreshLabel() { urlLabel.text = pathText + "\n" + diagText }
 
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
