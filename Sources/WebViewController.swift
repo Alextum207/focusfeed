@@ -1,11 +1,13 @@
 import UIKit
 import WebKit
 
-final class WebViewController: UIViewController, WKNavigationDelegate {
+final class WebViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHandler {
     private let site: Site
     private let web: WKWebView
     private let urlLabel = UILabel()          // debug: shows the current path so we can target viewers
     private var urlObs: NSKeyValueObservation?
+    private var pathText = ""
+    private var diagText = ""
 
     init(site: Site, script: String) {
         self.site = site
@@ -20,6 +22,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate {
         }
         web = WKWebView(frame: .zero, configuration: cfg)
         super.init(nibName: nil, bundle: nil)
+        cfg.userContentController.add(self, name: "ff")   // JS → native diagnostics
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -31,6 +34,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate {
         web.translatesAutoresizingMaskIntoConstraints = false
         urlLabel.translatesAutoresizingMaskIntoConstraints = false
         urlLabel.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
+        urlLabel.numberOfLines = 3
         urlLabel.textColor = .lightGray
         urlLabel.backgroundColor = .black
         view.addSubview(web)
@@ -44,14 +48,23 @@ final class WebViewController: UIViewController, WKNavigationDelegate {
             urlLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 6),
             urlLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             urlLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            urlLabel.heightAnchor.constraint(equalToConstant: 14),
+            urlLabel.heightAnchor.constraint(equalToConstant: 44),
         ])
         urlObs = web.observe(\.url, options: [.new]) { [weak self] w, _ in
             guard let u = w.url else { return }
-            self?.urlLabel.text = u.path + (u.query.map { "?" + $0 } ?? "")
+            self?.pathText = u.path + (u.query.map { "?" + $0 } ?? "")
+            self?.refreshLabel()
         }
         web.load(URLRequest(url: site.start))
     }
+
+    func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
+        diagText = (m.body as? String) ?? ""
+        refreshLabel()
+    }
+
+    private func refreshLabel() { urlLabel.text = pathText + "
+" + diagText }
 
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {

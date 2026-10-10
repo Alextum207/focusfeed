@@ -129,4 +129,19 @@ final class InstagramScriptTests: ScriptTestCase {
         XCTAssertFalse(locked(base: "https://www.instagram.com/reel/ABC/",
             act: "history.pushState({}, '', '/'); document.body.appendChild(document.createElement('i'));"))
     }
+
+    private func lockedAt(_ path: String, video: String) -> Bool {
+        let html = "<meta name='viewport' content='width=device-width'><body style='margin:0'>" + video
+        return eval(html: html, base: "https://www.instagram.com" + path, script: Scripts.instagram,
+                    js: "window.__ffLocked()") as? Bool ?? false
+    }
+    func testBigVideoInDirectThreadLocksGestures() {
+        XCTAssertTrue(lockedAt("/direct/t/1/", video: "<video style='display:block;width:100%;height:600px'></video>"))
+    }
+    func testSmallVideoInDirectThreadDoesNotLock() {
+        XCTAssertFalse(lockedAt("/direct/t/1/", video: "<video style='display:block;width:120px;height:120px'></video>"))
+    }
+    func testBigVideoInFeedDoesNotLock() {
+        XCTAssertFalse(lockedAt("/", video: "<video style='display:block;width:100%;height:600px'></video>"))
+    }
 }

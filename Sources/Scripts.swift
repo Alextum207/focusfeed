@@ -108,7 +108,51 @@ enum Scripts {
           lock.remove();
         }
       }
-      var t; new MutationObserver(function(){ clearTimeout(t); t=setTimeout(sweep,50); })
+      // --- DM reel viewer: lives inside /direct/t/<id> (no URL change), so lock by gesture ---
+      var diag={blocked:0}, startY=0, active=false;
+      var gs=document.createElement('style');
+      gs.textContent='html.ff-locked,html.ff-locked *{touch-action:none!important;scroll-snap-type:none!important;'
+        +'overscroll-behavior:none!important}';
+      function bigVideo(){
+        var vs=document.querySelectorAll('video');
+        for(var i=0;i<vs.length;i++){
+          var r=vs[i].getBoundingClientRect();
+          if(r.width>=innerWidth*0.8&&r.height>=innerHeight*0.45&&r.bottom>0&&r.top<innerHeight) return vs[i];
+        }
+        return null;
+      }
+      function locked(){ return location.pathname.indexOf('/direct/')===0&&!!bigVideo(); }
+      window.__ffLocked=locked;
+      function chain(el){
+        var s=[];
+        for(var n=el,i=0;n&&i<5;n=n.parentElement,i++){
+          var c=(typeof n.className==='string'&&n.className)?'.'+n.className.split(' ')[0].slice(0,8):'';
+          s.push(n.tagName.toLowerCase()+(n.getAttribute('role')?'['+n.getAttribute('role')+']':'')+c);
+        }
+        return s.join('<');
+      }
+      function report(){
+        try{
+          var v=bigVideo(), r=v&&v.getBoundingClientRect();
+          window.webkit.messageHandlers.ff.postMessage('lock='+(locked()?1:0)+' blk='+diag.blocked
+            +' vids='+document.querySelectorAll('video').length
+            +(v?' big '+Math.round(r.width)+'x'+Math.round(r.height)+' '+chain(v):''));
+        }catch(e){}
+      }
+      function gesture(){
+        if(!gs.isConnected) document.documentElement.appendChild(gs);
+        document.documentElement.classList.toggle('ff-locked',locked());
+        report();
+      }
+      addEventListener('touchstart',function(e){
+        startY=e.touches[0].clientY; active=locked();
+      },{capture:true,passive:true});
+      addEventListener('touchmove',function(e){
+        if(active&&Math.abs(e.touches[0].clientY-startY)>8){
+          e.preventDefault(); e.stopPropagation(); diag.blocked++; report();
+        }
+      },{capture:true,passive:false});
+      var t; new MutationObserver(function(){ clearTimeout(t); t=setTimeout(function(){ sweep(); gesture(); },50); })
         .observe(document,{childList:true,subtree:true});
       document.addEventListener('DOMContentLoaded',sweep);
     })();
