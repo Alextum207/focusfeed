@@ -10,6 +10,8 @@ final class WebViewController: UIViewController, WKNavigationDelegate {
         let cfg = WKWebViewConfiguration()
         // Without a Safari token Google rejects sign-in in embedded web views.
         cfg.applicationNameForUserAgent = "Version/17.0 Mobile/15E148 Safari/604.1"
+        // Default is false on iPhone: every playing <video> would jump to the native fullscreen player.
+        cfg.allowsInlineMediaPlayback = true
         for src in [Scripts.guardScript(for: site), script] where !src.isEmpty {
             cfg.userContentController.addUserScript(
                 WKUserScript(source: src, injectionTime: .atDocumentStart, forMainFrameOnly: true))
