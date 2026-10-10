@@ -4,6 +4,8 @@ import WebKit
 final class WebViewController: UIViewController, WKNavigationDelegate {
     private let site: Site
     private let web: WKWebView
+    private let urlLabel = UILabel()          // debug: shows the current path so we can target viewers
+    private var urlObs: NSKeyValueObservation?
 
     init(site: Site, script: String) {
         self.site = site
@@ -27,14 +29,27 @@ final class WebViewController: UIViewController, WKNavigationDelegate {
         web.navigationDelegate = self
         web.allowsBackForwardNavigationGestures = true   // swipe from the left edge = back
         web.translatesAutoresizingMaskIntoConstraints = false
+        urlLabel.translatesAutoresizingMaskIntoConstraints = false
+        urlLabel.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
+        urlLabel.textColor = .lightGray
+        urlLabel.backgroundColor = .black
         view.addSubview(web)
+        view.addSubview(urlLabel)
         // Safe area keeps the page clear of the status bar and our own tab bar.
         NSLayoutConstraint.activate([
             web.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            web.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            web.bottomAnchor.constraint(equalTo: urlLabel.topAnchor),
             web.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             web.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            urlLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 6),
+            urlLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            urlLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            urlLabel.heightAnchor.constraint(equalToConstant: 14),
         ])
+        urlObs = web.observe(\.url, options: [.new]) { [weak self] w, _ in
+            guard let u = w.url else { return }
+            self?.urlLabel.text = u.path + (u.query.map { "?" + $0 } ?? "")
+        }
         web.load(URLRequest(url: site.start))
     }
 
