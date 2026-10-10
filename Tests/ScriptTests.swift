@@ -36,7 +36,7 @@ class ScriptTestCase: XCTestCase {
 
     /// style.display == 'none' for each id.
     func hidden(html: String, base: String, script: String, ids: [String]) -> [String: Bool] {
-        let js = "[" + ids.map { "document.getElementById('\($0)').style.display==='none'" }
+        let js = "[" + ids.map { "getComputedStyle(document.getElementById('\($0)')).display==='none'" }
             .joined(separator: ",") + "]"
         let arr = eval(html: html, base: base, script: script, js: js) as? [Bool] ?? []
         return Dictionary(uniqueKeysWithValues: zip(ids, arr))
@@ -181,5 +181,15 @@ final class YouTubeStatsTests: ScriptTestCase {
     }
     func testWatchPagePlaybackIsAllowed() {
         XCTAssertEqual(blockedPlays(path: "/watch?v=1"), 0)
+    }
+
+final class YouTubeRecyclingTests: ScriptTestCase {
+    /// YouTube reuses card elements while scrolling: a card that stops being a Short must reappear.
+    func testRecycledCardIsShownAgain() {
+        let html = "<ytm-rich-item-renderer id='c'><span id='d'>0:30</span></ytm-rich-item-renderer>"
+        let v = eval(html: html, base: "https://m.youtube.com/", script: Scripts.youtube,
+                     act: "setTimeout(function(){ document.getElementById('d').textContent='12:30'; }, 100)",
+                     js: "getComputedStyle(document.getElementById('c')).display") as? String ?? ""
+        XCTAssertNotEqual(v, "none")
     }
 }

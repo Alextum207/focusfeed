@@ -31,7 +31,8 @@ enum Scripts {
 
     /// YouTube: hides anything that links to /shorts, the "Shorts" tab (a button without a link),
     /// and every video card whose duration badge is <= 1:00 (Shorts are often served as /watch
-    /// links, so the URL alone cannot tell them apart).
+    /// links, so the URL alone cannot tell them apart). Hiding is a recomputed C\\s class, not a sticky
+    /// inline style: YouTube recycles card elements while scrolling.
     static let youtube = """
     (function(){
       var MAX=60;
@@ -58,45 +59,47 @@ enum Scripts {
         if(v&&v.tagName==='VIDEO'&&!playAllowed()){ v.pause(); window.__ffBlockedPlays++; }
       },true);
       var st=document.createElement('style');
-      st.textContent='ytm-rich-section-renderer:has(ytm-reel-shelf-renderer),ytm-reel-shelf-renderer,'
+      st.textContent='.ff-hide,ytm-rich-section-renderer:has(ytm-reel-shelf-renderer),ytm-reel-shelf-renderer,'
         +'ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2{display:none!important}';
+      var sweeps=0, loads=0;
+      try{ loads=(+sessionStorage.getItem('ffLoads')||0)+1; sessionStorage.setItem('ffLoads',String(loads)); }catch(e){}
       function seconds(t){
         var m=TIME.exec(t.trim()); if(!m) return -1;
         return (+m[1]||0)*3600+(+m[2])*60+(+m[3]);
       }
-      var sweeps=0, loads=0;
-      try{ loads=(+sessionStorage.getItem('ffLoads')||0)+1; sessionStorage.setItem('ffLoads',String(loads)); }catch(e){}
+      function isShortCard(c){
+        var all=c.querySelectorAll('*');
+        for(var k=0;k<all.length;k++){
+          var l=all[k];
+          if(l.childElementCount) continue;
+          var s=seconds(l.textContent);
+          if(s>=0) return s<=MAX;
+        }
+        return false;
+      }
       function stats(){
-        var all=document.querySelectorAll(VIDEO), h=0;
-        for(var i=0;i<all.length;i++) if(all[i].style.display==='none') h++;
-        return {items:all.length,hid:h,loads:loads,sweeps:sweeps};
+        return {items:document.querySelectorAll(VIDEO).length,
+                hid:document.querySelectorAll('.ff-hide').length, loads:loads, sweeps:sweeps};
       }
       window.__ffStats=stats;
       function report(){
         try{
           var s=stats();
-          window.webkit.messageHandlers.ff.postMessage('yt loads='+s.loads+' items='+s.items+' hid='+s.hid+' sweeps='+s.sweeps+' blockedPlays='+window.__ffBlockedPlays);
+          window.webkit.messageHandlers.ff.postMessage('yt loads='+s.loads+' items='+s.items+' hid='+s.hid
+            +' sweeps='+s.sweeps+' blockedPlays='+window.__ffBlockedPlays);
         }catch(e){}
       }
       function sweep(){
         sweeps++;
         if(!st.isConnected) (document.head||document.documentElement).appendChild(st);
-        document.querySelectorAll('a[href*="/shorts"]').forEach(function(a){
-          (a.closest(CARD)||a).style.display='none';
-        });
+        var want=new Set();
+        document.querySelectorAll('a[href*="/shorts"]').forEach(function(a){ want.add(a.closest(CARD)||a); });
         document.querySelectorAll('ytm-pivot-bar-item-renderer').forEach(function(i){
-          if(/^\\s*shorts\\s*$/i.test(i.textContent)) i.style.display='none';
+          if(/^\\s*shorts\\s*$/i.test(i.textContent)) want.add(i);
         });
-        document.querySelectorAll(VIDEO).forEach(function(c){
-          if(c.style.display==='none') return;
-          var all=c.querySelectorAll('*');
-          for(var k=0;k<all.length;k++){
-            var l=all[k];
-            if(l.childElementCount) continue;
-            var s=seconds(l.textContent);
-            if(s>=0){ if(s<=MAX) c.style.display='none'; return; }
-          }
-        });
+        document.querySelectorAll(VIDEO).forEach(function(c){ if(isShortCard(c)) want.add(c); });
+        document.querySelectorAll('.ff-hide').forEach(function(el){ if(!want.has(el)) el.classList.remove('ff-hide'); });
+        want.forEach(function(el){ el.classList.add('ff-hide'); });
         report();
       }
       var t; new MutationObserver(function(){ clearTimeout(t); t=setTimeout(sweep,50); })
