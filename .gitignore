@@ -1,0 +1,5 @@
+FocusFeed.xcodeproj/
+build/
+Payload/
+*.ipa
+Sources/Info.plist

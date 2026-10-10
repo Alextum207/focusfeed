@@ -1,0 +1,30 @@
+name: FocusFeed
+options:
+  bundleIdPrefix: dev.local
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  FocusFeed:
+    type: application
+    platform: iOS
+    sources: [Sources]
+    info:
+      path: Sources/Info.plist
+      properties:
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.local.focusfeed
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+  FocusFeedTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests]
+    dependencies:
+      - target: FocusFeed
+schemes:
+  FocusFeed:
+    build: { targets: { FocusFeed: all } }
+    test: { targets: [FocusFeedTests] }
