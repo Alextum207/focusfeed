@@ -1,7 +1,7 @@
 import UIKit
 
 @main
-final class AppDelegate: UIResponder, UIApplicationDelegate {
+final class AppDelegate: UIResponder, UIApplicationDelegate, UITabBarControllerDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication,
@@ -12,6 +12,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         let yt = WebViewController(site: .youtube, script: Scripts.youtube)
         yt.tabBarItem = UITabBarItem(title: "YouTube", image: UIImage(systemName: "play.rectangle"), tag: 1)
         tabs.viewControllers = [ig, yt]
+        tabs.delegate = self
         let bar = UITabBarAppearance()
         bar.configureWithOpaqueBackground()
         tabs.tabBar.standardAppearance = bar
@@ -19,6 +20,11 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         window = UIWindow(frame: UIScreen.main.bounds)
         window?.rootViewController = tabs
         window?.makeKeyAndVisible()
+        return true
+    }
+
+    func tabBarController(_ t: UITabBarController, shouldSelect vc: UIViewController) -> Bool {
+        if vc === t.selectedViewController { (vc as? WebViewController)?.toggleDebug() }
         return true
     }
 }

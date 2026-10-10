@@ -51,7 +51,22 @@ enum Scripts {
         var m=TIME.exec(t.trim()); if(!m) return -1;
         return (+m[1]||0)*3600+(+m[2])*60+(+m[3]);
       }
+      var sweeps=0, loads=0;
+      try{ loads=(+sessionStorage.getItem('ffLoads')||0)+1; sessionStorage.setItem('ffLoads',String(loads)); }catch(e){}
+      function stats(){
+        var all=document.querySelectorAll(VIDEO), h=0;
+        for(var i=0;i<all.length;i++) if(all[i].style.display==='none') h++;
+        return {items:all.length,hid:h,loads:loads,sweeps:sweeps};
+      }
+      window.__ffStats=stats;
+      function report(){
+        try{
+          var s=stats();
+          window.webkit.messageHandlers.ff.postMessage('yt loads='+s.loads+' items='+s.items+' hid='+s.hid+' sweeps='+s.sweeps);
+        }catch(e){}
+      }
       function sweep(){
+        sweeps++;
         if(!st.isConnected) (document.head||document.documentElement).appendChild(st);
         document.querySelectorAll('a[href*="/shorts"]').forEach(function(a){
           (a.closest(CARD)||a).style.display='none';
@@ -69,6 +84,7 @@ enum Scripts {
             if(s>=0){ if(s<=MAX) c.style.display='none'; return; }
           }
         });
+        report();
       }
       var t; new MutationObserver(function(){ clearTimeout(t); t=setTimeout(sweep,50); })
         .observe(document,{childList:true,subtree:true});
@@ -134,12 +150,22 @@ enum Scripts {
       function report(){
         try{
           var v=bigVideo(), r=v&&v.getBoundingClientRect();
-          window.webkit.messageHandlers.ff.postMessage('lock='+(locked()?1:0)+' blk='+diag.blocked
+          var vv=window.visualViewport;
+          window.webkit.messageHandlers.ff.postMessage('iw='+innerWidth+' cw='+document.documentElement.clientWidth
+            +' sw='+document.documentElement.scrollWidth+' vv='+(vv?Math.round(vv.width)+'@'+vv.scale:'-')
+            +' lock='+(locked()?1:0)+' blk='+diag.blocked
             +' vids='+document.querySelectorAll('video').length
             +(v?' big '+Math.round(r.width)+'x'+Math.round(r.height)+' '+chain(v):''));
         }catch(e){}
       }
+      var VP='width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no';
+      function fixViewport(){
+        var m=document.querySelector('meta[name=viewport]');
+        if(!m){ m=document.createElement('meta'); m.name='viewport'; document.documentElement.appendChild(m); }
+        if(m.content!==VP) m.content=VP;
+      }
       function gesture(){
+        fixViewport();
         if(!gs.isConnected) document.documentElement.appendChild(gs);
         document.documentElement.classList.toggle('ff-locked',locked());
         report();
@@ -154,7 +180,7 @@ enum Scripts {
       },{capture:true,passive:false});
       var t; new MutationObserver(function(){ clearTimeout(t); t=setTimeout(function(){ sweep(); gesture(); },50); })
         .observe(document,{childList:true,subtree:true});
-      document.addEventListener('DOMContentLoaded',sweep);
+      document.addEventListener('DOMContentLoaded',function(){ sweep(); gesture(); });
     })();
     """
 }

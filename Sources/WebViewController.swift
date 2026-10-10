@@ -6,6 +6,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKScriptM
     private let web: WKWebView
     private let urlLabel = UILabel()          // debug: shows the current path so we can target viewers
     private var urlObs: NSKeyValueObservation?
+    private var labelHeight: NSLayoutConstraint!
     private var pathText = ""
     private var diagText = ""
 
@@ -35,6 +36,8 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKScriptM
         urlLabel.translatesAutoresizingMaskIntoConstraints = false
         urlLabel.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
         urlLabel.numberOfLines = 3
+        urlLabel.clipsToBounds = true
+        labelHeight = urlLabel.heightAnchor.constraint(equalToConstant: 0)   // hidden until toggled
         urlLabel.textColor = .lightGray
         urlLabel.backgroundColor = .black
         view.addSubview(web)
@@ -48,7 +51,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKScriptM
             urlLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 6),
             urlLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             urlLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            urlLabel.heightAnchor.constraint(equalToConstant: 44),
+            labelHeight,
         ])
         urlObs = web.observe(\.url, options: [.new]) { [weak self] w, _ in
             guard let u = w.url else { return }
@@ -61,6 +64,12 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKScriptM
     func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
         diagText = (m.body as? String) ?? ""
         refreshLabel()
+    }
+
+    /// Tap the already-selected tab to show/hide the diagnostic strip.
+    func toggleDebug() {
+        labelHeight.constant = labelHeight.constant == 0 ? 44 : 0
+        view.layoutIfNeeded()
     }
 
     private func refreshLabel() { urlLabel.text = pathText + "\n" + diagText }

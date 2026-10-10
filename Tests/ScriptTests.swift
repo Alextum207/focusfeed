@@ -144,4 +144,23 @@ final class InstagramScriptTests: ScriptTestCase {
     func testBigVideoInFeedDoesNotLock() {
         XCTAssertFalse(lockedAt("/", video: "<video style='display:block;width:100%;height:600px'></video>"))
     }
+    func testViewportIsPinnedToDeviceWidth() {
+        let c = eval(html: "<meta name='viewport' content='width=980'><body>x</body>",
+                     base: "https://www.instagram.com/", script: Scripts.instagram,
+                     js: "document.querySelector('meta[name=viewport]').content") as? String ?? ""
+        XCTAssertTrue(c.contains("width=device-width") && c.contains("minimum-scale=1"), c)
+    }
+}
+
+final class YouTubeStatsTests: ScriptTestCase {
+    func testStatsCountItemsAndHiddenCards() {
+        let html = """
+        <ytm-rich-item-renderer><span>12:30</span></ytm-rich-item-renderer>
+        <ytm-rich-item-renderer><span>5:00</span></ytm-rich-item-renderer>
+        <ytm-rich-item-renderer><span>0:30</span></ytm-rich-item-renderer>
+        """
+        let r = eval(html: html, base: "https://m.youtube.com/", script: Scripts.youtube,
+                     js: "JSON.stringify(window.__ffStats())") as? String ?? ""
+        XCTAssertTrue(r.contains("\"items\":3") && r.contains("\"hid\":1"), r)
+    }
 }
