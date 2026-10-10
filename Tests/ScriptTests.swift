@@ -168,4 +168,18 @@ final class YouTubeStatsTests: ScriptTestCase {
                      js: "JSON.stringify(window.__ffStats())") as? String ?? ""
         XCTAssertTrue(r.contains("\"items\":3") && r.contains("\"hid\":1"), r)
     }
+
+    private func blockedPlays(path: String) -> Int {
+        let v = eval(html: "<body>x</body>", base: "https://m.youtube.com" + path, script: Scripts.youtube,
+                     act: "document.createElement('video').play().catch(function(){})",
+                     js: "window.__ffBlockedPlays") as? Int ?? -1
+        return v
+    }
+    func testFeedPreviewPlaybackIsBlocked() {
+        XCTAssertEqual(blockedPlays(path: "/"), 1)
+        XCTAssertEqual(blockedPlays(path: "/results?search_query=a"), 1)
+    }
+    func testWatchPagePlaybackIsAllowed() {
+        XCTAssertEqual(blockedPlays(path: "/watch?v=1"), 0)
+    }
 }

@@ -41,6 +41,22 @@ enum Scripts {
       var VIDEO='ytm-rich-item-renderer,ytm-video-with-context-renderer,ytm-compact-video-renderer,'
         +'ytm-compact-autoplay-renderer,ytm-media-item,yt-lockup-view-model';
       var TIME=/^(?:(\\d+):)?(\\d{1,2}):(\\d{2})$/;
+      // Feed previews autoplay inline (allowsInlineMediaPlayback) and keep cycling through cards.
+      // Playback is only allowed on the watch page.
+      window.__ffBlockedPlays=0;
+      function playAllowed(){ return location.pathname.indexOf('/watch')===0; }
+      var origPlay=HTMLMediaElement.prototype.play;
+      HTMLMediaElement.prototype.play=function(){
+        if(!playAllowed()){
+          window.__ffBlockedPlays++;
+          return Promise.reject(new DOMException('FocusFeed: previews are off','NotAllowedError'));
+        }
+        return origPlay.apply(this,arguments);
+      };
+      document.addEventListener('play',function(e){
+        var v=e.target;
+        if(v&&v.tagName==='VIDEO'&&!playAllowed()){ v.pause(); window.__ffBlockedPlays++; }
+      },true);
       var st=document.createElement('style');
       st.textContent='ytm-rich-section-renderer:has(ytm-reel-shelf-renderer),ytm-reel-shelf-renderer,'
         +'ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2{display:none!important}';
@@ -59,7 +75,7 @@ enum Scripts {
       function report(){
         try{
           var s=stats();
-          window.webkit.messageHandlers.ff.postMessage('yt loads='+s.loads+' items='+s.items+' hid='+s.hid+' sweeps='+s.sweeps);
+          window.webkit.messageHandlers.ff.postMessage('yt loads='+s.loads+' items='+s.items+' hid='+s.hid+' sweeps='+s.sweeps+' blockedPlays='+window.__ffBlockedPlays);
         }catch(e){}
       }
       function sweep(){
