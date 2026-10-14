@@ -6,6 +6,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, UITabBarControllerD
     private var session = SessionStore.load()
     private var timer: Timer?
     private let timeLabel = UILabel()   // remaining time, pinned above the tab bar
+    private var warned = false          // last-minute banner already shown for this stretch
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions o: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
@@ -51,14 +52,41 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, UITabBarControllerD
             let warn = remaining <= Session.warningLead
             timeLabel.text = (warn ? " Noch " : " ") + clock(remaining) + " "
             timeLabel.backgroundColor = warn ? .systemRed : UIColor.black.withAlphaComponent(0.6)
+            if warn && !warned, let tabs = window?.rootViewController { showWarning(on: tabs.view) }
+            warned = warn
         case let .locked(until):
             let text = "Pause\n\nWieder frei in \(clock(until.timeIntervalSince(now)))"
             if let lock = root as? MessageViewController { lock.label.text = text } else { show(MessageViewController(text)) }
         }
     }
 
+    /// Last-minute warning: banner at the top for a few seconds plus a haptic buzz.
+    private func showWarning(on view: UIView) {
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        let banner = UILabel()
+        banner.text = "Noch 1 Minute"
+        banner.font = .preferredFont(forTextStyle: .headline)
+        banner.textAlignment = .center
+        banner.textColor = .white
+        banner.backgroundColor = .systemRed
+        banner.layer.cornerRadius = 12
+        banner.clipsToBounds = true
+        banner.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(banner)
+        NSLayoutConstraint.activate([
+            banner.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            banner.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            banner.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            banner.heightAnchor.constraint(equalToConstant: 48),
+        ])
+        UIView.animate(withDuration: 0.4, delay: 4, options: [], animations: { banner.alpha = 0 }) { _ in
+            banner.removeFromSuperview()
+        }
+    }
+
     private func start(terms: [String], minutes: Int) {
         guard session.start(terms: terms, minutes: minutes, now: Date()) else { return }
+        warned = false
         SessionStore.save(session)
         SessionStore.recentTerms = session.terms + SessionStore.recentTerms.filter { !session.terms.contains($0) }
         render()
