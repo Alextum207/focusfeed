@@ -61,13 +61,13 @@ final class SetupViewController: UIViewController {
         for f in [termsField, minutesField] {
             f.borderStyle = .roundedRect
             f.clearButtonMode = .whileEditing
-            f.addTarget(self, action: #selector(validate), for: .editingChanged)
+            f.addTarget(self, action: #selector(updateStartButton), for: .editingChanged)
         }
         termsField.autocapitalizationType = .none
 
         let recentRow = row(recent.map { t in button(t) { [weak self] in self?.append(t) } })
         let minuteRow = row([10, 15, 30, 60].map { m in button("\(m) Min") { [weak self] in
-            self?.minutesField.text = "\(m)"; self?.validate()
+            self?.minutesField.text = "\(m)"; self?.updateStartButton()
         } })
 
         startButton.setTitle("Los", for: .normal)
@@ -85,14 +85,14 @@ final class SetupViewController: UIViewController {
             stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
         ])
         recentRow.isHidden = recent.isEmpty
-        validate()
+        updateStartButton()
     }
 
     private var minutes: Int? {
         Int(minutesField.text ?? "").flatMap { (1...Session.maxMinutes).contains($0) ? $0 : nil }
     }
 
-    @objc private func validate() { startButton.isEnabled = minutes != nil }
+    @objc private func updateStartButton() { startButton.isEnabled = minutes != nil }
 
     @objc private func start() {
         guard let m = minutes else { return }
