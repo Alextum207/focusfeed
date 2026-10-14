@@ -63,6 +63,45 @@ final class YouTubeScriptTests: ScriptTestCase {
     }
 }
 
+final class YouTubeWatchPageTests: ScriptTestCase {
+    func testRecommendationsHiddenPlayerKeptOnWatch() {
+        let r = hidden(html: """
+        <div id="player" class="html5-video-player"><video></video></div>
+        <ytm-item-section-renderer id="rel" section-identifier="related-items">
+          <ytm-video-with-context-renderer id="card"><a href="/watch?v=2">n</a></ytm-video-with-context-renderer>
+        </ytm-item-section-renderer>
+        <div id="end" class="ytp-endscreen-content">next</div>
+        """, base: "https://m.youtube.com/watch?v=1", script: Scripts.youtube, ids: ["player", "rel", "card", "end"])
+        XCTAssertEqual(r, ["player": false, "rel": true, "card": true, "end": true])
+    }
+    func testResultCardsStayVisibleOnResults() {
+        let r = hidden(html: "<ytm-video-with-context-renderer id='c'><a href='/watch?v=1'>v</a></ytm-video-with-context-renderer>",
+                       base: "https://m.youtube.com/results?search_query=gaming", script: Scripts.youtube, ids: ["c"])
+        XCTAssertEqual(r, ["c": false])
+    }
+}
+
+final class SessionGuardTests: ScriptTestCase {
+    private let site = Site.youtube(terms: ["gaming"])
+    private func path(after act: String) -> String {
+        eval(html: "<body><a id='a' href='/@chan'>c</a></body>", base: "https://m.youtube.com/results?search_query=gaming",
+             script: Scripts.guardScript(for: site), act: act, js: "location.pathname+location.search") as? String ?? ""
+    }
+    func testGuardMirrorsSiteRules() {
+        let js = "['/results?search_query=Gaming','/results?search_query=cats','/watch?v=1','/','/@chan','/shorts/x']"
+            + ".map(window.__ffAllowed)"
+        let r = eval(html: "<body></body>", base: "https://m.youtube.com/results?search_query=gaming",
+                     script: Scripts.guardScript(for: site), js: js) as? [Bool]
+        XCTAssertEqual(r, [true, false, true, false, false, false])
+    }
+    func testInPageNavigationToWatchIsAllowed() {
+        XCTAssertEqual(path(after: "history.pushState({}, '', '/watch?v=1')"), "/watch?v=1")
+    }
+    func testClickOnChannelLinkIsCancelled() {
+        XCTAssertEqual(path(after: "document.getElementById('a').click()"), "/results?search_query=gaming")
+    }
+}
+
 final class YouTubeDurationTests: ScriptTestCase {
     func testShortDurationCardsHiddenLongOnesKept() {
         let r = hidden(html: """

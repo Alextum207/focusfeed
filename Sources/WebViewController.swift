@@ -11,9 +11,11 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKScriptM
     private var userReload = false   // script-initiated reloads are cancelled
     private var pathText = ""
     private var diagText = ""
+    private let terms: [String]   // >1 → chip bar to switch between the session's result lists
 
-    init(site: Site, script: String) {
+    init(site: Site, script: String, terms: [String] = []) {
         self.site = site
+        self.terms = terms
         let cfg = WKWebViewConfiguration()
         // Without a Safari token Google rejects sign-in in embedded web views.
         cfg.applicationNameForUserAgent = "Version/17.0 Mobile/15E148 Safari/604.1"
@@ -44,9 +46,23 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKScriptM
         urlLabel.backgroundColor = .black
         view.addSubview(web)
         view.addSubview(urlLabel)
+        var top = view.safeAreaLayoutGuide.topAnchor
+        if terms.count > 1 {
+            let chips = UISegmentedControl(items: terms)
+            chips.selectedSegmentIndex = 0
+            chips.addTarget(self, action: #selector(chipChanged), for: .valueChanged)
+            chips.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(chips)
+            NSLayoutConstraint.activate([
+                chips.topAnchor.constraint(equalTo: top, constant: 4),
+                chips.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
+                chips.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
+            ])
+            top = chips.bottomAnchor
+        }
         // Safe area keeps the page clear of the status bar and our own tab bar.
         NSLayoutConstraint.activate([
-            web.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            web.topAnchor.constraint(equalTo: top, constant: terms.count > 1 ? 4 : 0),
             web.bottomAnchor.constraint(equalTo: urlLabel.topAnchor),
             web.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             web.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -68,6 +84,16 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKScriptM
     @objc private func pulled() {
         userReload = true
         web.reload()
+    }
+
+    @objc private func chipChanged(_ c: UISegmentedControl) {
+        web.load(URLRequest(url: Site.searchURL(terms[c.selectedSegmentIndex])))
+    }
+
+    /// Session over: stop playback and break the script-handler retain cycle so the view can go away.
+    func tearDown() {
+        web.configuration.userContentController.removeAllScriptMessageHandlers()
+        web.loadHTMLString("", baseURL: nil)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { refresh.endRefreshing() }
@@ -96,7 +122,8 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKScriptM
                 return
             }
         }
-        if let url = action.request.url, let target = site.redirect(for: url) {
+        // Only main-frame navigations: a session's allow-list would otherwise bounce YouTube's own iframes.
+        if action.targetFrame?.isMainFrame ?? true, let url = action.request.url, let target = site.redirect(for: url) {
             decisionHandler(.cancel)
             webView.load(URLRequest(url: target))
         } else {
