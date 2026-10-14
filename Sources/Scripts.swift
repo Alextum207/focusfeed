@@ -259,11 +259,25 @@ enum Scripts {
       }
       function locked(){ var p=location.pathname; return (p.indexOf('/direct/')===0||REEL.test(p))&&!!bigVideo(); }
       window.__ffLocked=locked;
+      // The reel viewer sizes its box 9:16 from the height; our web view is shorter than Safari's
+      // (tab bar), so the box ends up narrower than the screen: black strip right, buttons cut off.
+      function widen(){
+        var v=bigVideo(); if(!v) return;
+        v.style.setProperty('object-fit','cover','important');
+        for(var n=v.parentElement,i=0;n&&n!==document.body&&i<10;n=n.parentElement,i++){
+          var w=n.getBoundingClientRect().width;
+          if(w<innerWidth-1&&w>innerWidth*0.6){
+            n.style.setProperty('width','100%','important');
+            n.style.setProperty('max-width','100%','important');
+          }
+        }
+      }
       function chain(el){
         var s=[];
         for(var n=el,i=0;n&&i<5;n=n.parentElement,i++){
           var c=(typeof n.className==='string'&&n.className)?'.'+n.className.split(' ')[0].slice(0,8):'';
-          s.push(n.tagName.toLowerCase()+(n.getAttribute('role')?'['+n.getAttribute('role')+']':'')+c);
+          s.push(n.tagName.toLowerCase()+(n.getAttribute('role')?'['+n.getAttribute('role')+']':'')+c
+            +Math.round(n.getBoundingClientRect().width));
         }
         return s.join('<');
       }
@@ -288,6 +302,7 @@ enum Scripts {
         fixViewport();
         if(!gs.isConnected) document.documentElement.appendChild(gs);
         document.documentElement.classList.toggle('ff-locked',locked());
+        if(locked()) widen();
         report();
       }
       addEventListener('touchstart',function(e){

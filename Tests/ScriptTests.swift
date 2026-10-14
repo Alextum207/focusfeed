@@ -189,6 +189,19 @@ final class InstagramScriptTests: ScriptTestCase {
     func testBigVideoInFeedDoesNotLock() {
         XCTAssertFalse(lockedAt("/", video: "<video style='display:block;width:100%;height:600px'></video>"))
     }
+    private func boxWidth(at path: String) -> Double {
+        let html = "<meta name='viewport' content='width=device-width'><body style='margin:0'>"
+            + "<div id='box' style='width:330px;overflow:hidden'>"
+            + "<video style='display:block;width:390px;height:600px'></video></div>"
+        return eval(html: html, base: "https://www.instagram.com" + path, script: Scripts.instagram,
+                    js: "document.getElementById('box').getBoundingClientRect().width") as? Double ?? -1
+    }
+    func testNarrowReelBoxInDirectThreadIsWidened() {
+        XCTAssertEqual(boxWidth(at: "/direct/t/1/"), 390)
+    }
+    func testNarrowBoxInFeedIsLeftAlone() {
+        XCTAssertEqual(boxWidth(at: "/"), 330)
+    }
     func testViewportIsPinnedToDeviceWidth() {
         let c = eval(html: "<meta name='viewport' content='width=980'><body>x</body>",
                      base: "https://www.instagram.com/", script: Scripts.instagram,
