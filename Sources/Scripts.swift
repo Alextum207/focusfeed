@@ -175,7 +175,52 @@ enum Scripts {
       function hide(el){ el.style.display='none'; }
       function onReel(){ return REEL.test(location.pathname); }
       var snap=document.createElement('style');
-      snap.textContent='*{scroll-snap-type:none!important}';
+      snap.textContent='*{scroll-snap-type:none!important}article.ff-old{display:none!important}';
+      // --- Feed: hide posts seen on an earlier visit and posts older than a week ---
+      // Seen = at least half on screen for DWELL ms. Only earlier visits hide, so nothing jumps while scrolling.
+      var WEEK=7*864e5, DWELL=1000, now=Date.now(), seen={};
+      try{ seen=JSON.parse(localStorage.getItem('ffSeen')||'{}')||{}; }catch(e){}
+      for(var k in seen) if(now-seen[k]>WEEK) delete seen[k];
+      var before=Object.assign({},seen);
+      function saveSeen(){ try{ localStorage.setItem('ffSeen',JSON.stringify(seen)); }catch(e){} }
+      saveSeen();
+      function postId(a){
+        var l=a.querySelector('a[href*="/p/"],a[href*="/reel/"]');
+        var m=l&&/\\/(?:p|reel)\\/([^\\/?#]+)/.exec(l.getAttribute('href'));
+        return m?m[1]:null;
+      }
+      function tooOld(a){
+        var t=a.querySelector('time[datetime]');
+        return !!t && now-Date.parse(t.getAttribute('datetime'))>WEEK;
+      }
+      var timers=new Map(), watched=new WeakSet();
+      var io=window.IntersectionObserver ? new IntersectionObserver(function(es){
+        es.forEach(function(e){
+          var a=e.target;
+          if(e.isIntersecting){
+            if(!timers.has(a)) timers.set(a,setTimeout(function(){
+              var id=postId(a); if(id){ seen[id]=Date.now(); saveSeen(); }
+            },DWELL));
+          } else { clearTimeout(timers.get(a)); timers.delete(a); }
+        });
+      },{threshold:0.5}) : null;
+      var caught=document.createElement('div');
+      caught.id='ff-caughtup';
+      caught.textContent='Du bist auf dem neuesten Stand. Keine neuen Beiträge aus den letzten 7 Tagen.';
+      caught.style.cssText='position:fixed;left:16px;right:16px;top:40%;padding:16px;border-radius:12px;'
+        +'background:#222;color:#fff;font:16px -apple-system,sans-serif;text-align:center;z-index:9999;display:none';
+      function feed(){
+        if(location.pathname!=='/') { caught.style.display='none'; return; }
+        var total=0, shown=0;
+        document.querySelectorAll('article').forEach(function(a){
+          total++;
+          var id=postId(a), old=(id&&before[id])||tooOld(a);
+          a.classList.toggle('ff-old',!!old);
+          if(!old){ shown++; if(io&&!watched.has(a)){ watched.add(a); io.observe(a); } }
+        });
+        if(!caught.isConnected) document.documentElement.appendChild(caught);
+        caught.style.display=total&&!shown?'block':'none';
+      }
       var lock=document.createElement('style');
       lock.id='ff-lock';
       lock.textContent='html,body{overflow:hidden!important;overscroll-behavior:none!important}';
@@ -189,6 +234,7 @@ enum Scripts {
         document.querySelectorAll('article').forEach(function(a){
           if(SUGGESTED.test((a.innerText||a.textContent||'').slice(0,300))) hide(a);
         });
+        feed();
         if(onReel()){
           document.querySelectorAll('a[href*="/reel/"]').forEach(function(a){
             if(new URL(a.href,location.href).pathname!==p) hide(a);

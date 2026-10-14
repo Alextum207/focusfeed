@@ -12,7 +12,8 @@ class ScriptTestCase: XCTestCase {
     private var keep: [AnyObject] = []
 
     /// Loads `html` at `base` with `script` injected, optionally runs `act`, then returns the value of `js`.
-    func eval(html: String, base: String, script: String, act: String? = nil, js: String) -> Any? {
+    func eval(html: String, base: String, script: String, act: String? = nil, js: String,
+              delay: Double = 0.5) -> Any? {
         let cfg = WKWebViewConfiguration()
         cfg.userContentController.addUserScript(
             WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true))
@@ -27,7 +28,7 @@ class ScriptTestCase: XCTestCase {
 
         let done = expectation(description: "js")
         var out: Any?
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             web.evaluateJavaScript(js) { v, _ in out = v; done.fulfill() }
         }
         wait(for: [done], timeout: 10)
@@ -193,6 +194,47 @@ final class InstagramScriptTests: ScriptTestCase {
                      base: "https://www.instagram.com/", script: Scripts.instagram,
                      js: "document.querySelector('meta[name=viewport]').content") as? String ?? ""
         XCTAssertTrue(c.contains("width=device-width") && c.contains("minimum-scale=1"), c)
+    }
+}
+
+final class InstagramSeenFeedTests: ScriptTestCase {
+    private let feed = "https://www.instagram.com/?variant=following"
+    private func post(_ id: String, daysAgo: Double) -> String {
+        let t = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-daysAgo * 86400))
+        return "<article id='\(id)' style='height:300px'><a href='/p/\(id)/'>p</a><time datetime='\(t)'></time></article>"
+    }
+    /// Seeds localStorage before the Instagram script reads it (same document-start script).
+    private func seeded(_ ids: [String]) -> String {
+        "localStorage.setItem('ffSeen', JSON.stringify({" + ids.map { "'\($0)': Date.now()" }.joined(separator: ",")
+            + "}));" + Scripts.instagram
+    }
+
+    func testPostsOlderThanAWeekHidden() {
+        let r = hidden(html: post("OLD1", daysAgo: 8) + post("NEW1", daysAgo: 0.1),
+                       base: feed, script: seeded([]), ids: ["OLD1", "NEW1"])
+        XCTAssertEqual(r, ["OLD1": true, "NEW1": false])
+    }
+    func testPostsSeenOnEarlierVisitHidden() {
+        let r = hidden(html: post("SEEN1", daysAgo: 1) + post("FRESH1", daysAgo: 1),
+                       base: feed, script: seeded(["SEEN1"]), ids: ["SEEN1", "FRESH1"])
+        XCTAssertEqual(r, ["SEEN1": true, "FRESH1": false])
+    }
+    func testOnScreenPostIsRememberedButStaysVisible() {
+        let js = "[JSON.parse(localStorage.getItem('ffSeen')).hasOwnProperty('LOOK1'),"
+            + "getComputedStyle(document.getElementById('LOOK1')).display==='none']"
+        let r = eval(html: "<body style='margin:0'>" + post("LOOK1", daysAgo: 1), base: feed,
+                     script: seeded([]), js: js, delay: 1.8) as? [Bool]
+        XCTAssertEqual(r, [true, false])
+    }
+    func testCaughtUpShownWhenEverythingIsHidden() {
+        let js = "getComputedStyle(document.getElementById('ff-caughtup')).display"
+        XCTAssertEqual(eval(html: post("OLD2", daysAgo: 9), base: feed, script: seeded([]), js: js) as? String, "block")
+        XCTAssertEqual(eval(html: post("NEW2", daysAgo: 1), base: feed, script: seeded([]), js: js) as? String, "none")
+    }
+    func testProfilePagesUntouched() {
+        let r = hidden(html: post("OLD3", daysAgo: 30), base: "https://www.instagram.com/someuser/",
+                       script: seeded([]), ids: ["OLD3"])
+        XCTAssertEqual(r, ["OLD3": false])
     }
 }
 
