@@ -30,6 +30,14 @@ final class SessionTests: XCTestCase {
         XCTAssertFalse(s.start(terms: [], minutes: 10, now: at(1)))
         XCTAssertFalse(s.start(terms: [], minutes: 10, now: at(20)))   // locked
     }
+    func testChangeTermsKeepsTime() {
+        var s = Session()
+        XCTAssertFalse(s.changeTerms(["x"], now: t0))                 // setup: nothing to change
+        s.start(terms: ["gaming"], minutes: 15, now: t0)
+        XCTAssertTrue(s.changeTerms([" Lo+Fi ", ""], now: at(5)))
+        XCTAssertEqual(s.phase(at: at(5)), .running(terms: ["lo fi"], remaining: 600))
+        XCTAssertFalse(s.changeTerms(["x"], now: at(20)))             // locked
+    }
     func testExhaustedBudgetLocksFourTimesBudget() {
         var s = Session()
         s.start(terms: ["x"], minutes: 15, now: t0)

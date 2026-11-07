@@ -87,9 +87,32 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, UITabBarControllerD
     private func start(terms: [String], minutes: Int) {
         guard session.start(terms: terms, minutes: minutes, now: Date()) else { return }
         warned = false
+        saveWithRecent()
+        render()
+    }
+
+    private func saveWithRecent() {
         SessionStore.save(session)
         SessionStore.recentTerms = session.terms + SessionStore.recentTerms.filter { !session.terms.contains($0) }
-        render()
+    }
+
+    /// "Thema" button: edit the terms mid-session; the clock keeps running.
+    private func askForNewTerms(on vc: UIViewController) {
+        let alert = UIAlertController(title: "Thema ändern", message: "Kommagetrennt, leer = nur Instagram. Die Zeit läuft weiter.", preferredStyle: .alert)
+        alert.addTextField { [session] f in
+            f.text = session.terms.joined(separator: ", ")
+            f.autocapitalizationType = .none
+            f.clearButtonMode = .whileEditing
+        }
+        alert.addAction(UIAlertAction(title: "Abbrechen", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Übernehmen", style: .default) { [weak self, weak alert] _ in
+            guard let self, let text = alert?.textFields?.first?.text,
+                  self.session.changeTerms(text.split(separator: ",").map(String.init), now: Date()) else { return }
+            self.saveWithRecent()
+            self.show(self.makeTabs(terms: self.session.terms))
+            self.render()
+        })
+        vc.present(alert, animated: true)
     }
 
     private func show(_ vc: UIViewController) {
@@ -113,6 +136,18 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, UITabBarControllerD
         tabs.tabBar.standardAppearance = bar
         tabs.tabBar.scrollEdgeAppearance = bar
 
+        var cfg = UIButton.Configuration.filled()
+        cfg.title = "Thema"
+        cfg.image = UIImage(systemName: "pencil")
+        cfg.imagePadding = 4
+        cfg.buttonSize = .mini
+        cfg.baseBackgroundColor = UIColor.black.withAlphaComponent(0.6)
+        let themeButton = UIButton(configuration: cfg, primaryAction: UIAction { [weak self, weak tabs] _ in
+            if let tabs { self?.askForNewTerms(on: tabs) }
+        })
+        themeButton.translatesAutoresizingMaskIntoConstraints = false
+        tabs.view.addSubview(themeButton)
+
         timeLabel.font = .monospacedDigitSystemFont(ofSize: 13, weight: .semibold)
         timeLabel.textColor = .white
         timeLabel.layer.cornerRadius = 6
@@ -122,6 +157,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, UITabBarControllerD
         NSLayoutConstraint.activate([
             timeLabel.trailingAnchor.constraint(equalTo: tabs.view.trailingAnchor, constant: -8),
             timeLabel.bottomAnchor.constraint(equalTo: tabs.tabBar.topAnchor, constant: -6),
+            themeButton.leadingAnchor.constraint(equalTo: tabs.view.leadingAnchor, constant: 8),
+            themeButton.centerYAnchor.constraint(equalTo: timeLabel.centerYAnchor),
         ])
         return tabs
     }

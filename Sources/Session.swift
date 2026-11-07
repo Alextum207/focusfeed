@@ -33,6 +33,15 @@ struct Session: Codable, Equatable {
         return true
     }
 
+    /// Swaps the search terms of a running session; time used and budget stay. False outside a running session.
+    @discardableResult
+    mutating func changeTerms(_ terms: [String], now: Date) -> Bool {
+        settle(now)
+        guard case .running = phase(at: now) else { return false }
+        self.terms = terms.map(Self.normalize).filter { !$0.isEmpty }
+        return true
+    }
+
     /// App became active.
     mutating func resume(now: Date) {
         settle(now)
