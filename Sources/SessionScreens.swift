@@ -33,7 +33,7 @@ final class MessageViewController: UIViewController {
     }
 }
 
-/// Start screen: optional search terms (comma separated, recent ones as chips) + minutes (1...90).
+/// Start screen: optional search terms (comma separated, recent ones as chips behind a toggle) + minutes (1...90).
 final class SetupViewController: UIViewController {
     private let recent: [String]
     private let onStart: ([String], Int) -> Void
@@ -66,6 +66,15 @@ final class SetupViewController: UIViewController {
         termsField.autocapitalizationType = .none
 
         let recentRow = row(recent.map { t in button(t) { [weak self] in self?.append(t) } })
+        recentRow.isHidden = true
+        var toggleCfg = UIButton.Configuration.plain()
+        toggleCfg.title = "Letzte Suchen anzeigen"
+        let recentToggle = UIButton(configuration: toggleCfg, primaryAction: UIAction { a in
+            recentRow.isHidden.toggle()
+            (a.sender as? UIButton)?.configuration?.title = recentRow.isHidden ? "Letzte Suchen anzeigen" : "Letzte Suchen ausblenden"
+        })
+        recentToggle.isHidden = recent.isEmpty
+        recentToggle.contentHorizontalAlignment = .leading
         let minuteRow = row([10, 15, 30, 60].map { m in button("\(m) Min") { [weak self] in
             self?.minutesField.text = "\(m)"; self?.updateStartButton()
         } })
@@ -74,7 +83,7 @@ final class SetupViewController: UIViewController {
         startButton.titleLabel?.font = .preferredFont(forTextStyle: .title2)
         startButton.addTarget(self, action: #selector(start), for: .touchUpInside)
 
-        let stack = UIStackView(arrangedSubviews: [title, termsField, recentRow, minutesField, minuteRow, startButton])
+        let stack = UIStackView(arrangedSubviews: [title, termsField, recentToggle, recentRow, minutesField, minuteRow, startButton])
         stack.axis = .vertical
         stack.spacing = 14
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -84,7 +93,6 @@ final class SetupViewController: UIViewController {
             stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
         ])
-        recentRow.isHidden = recent.isEmpty
         updateStartButton()
     }
 
